@@ -1,4 +1,3 @@
-// ใช้ Chart จาก CDN
 declare const Chart: any;
 
 let bookingTrendChart: any;
@@ -108,7 +107,6 @@ function loadAll(): void {
 
 			updateChannel(result.channel);
 
-			// ✅ FIX: ต้องเรียกอันนี้
 			updateBookingRatio(result.booking_ratio);
 
 			updateBranches(result.branches);
@@ -159,13 +157,11 @@ function updateChannel(data: any): void {
 	channelChart.update();
 }
 
-// ✅ FIX หลักอยู่ตรงนี้
 function updateBookingRatio(data: any): void {
 
 	const labels = data?.labels || [];
 	const values = data?.data || [];
 
-	// 🎨 สีตาม label
 	const colors = labels.map((label: string) => {
 		if (label === "สำเร็จ") return "#22c55e";
 		if (label === "ยกเลิก") return "#ef4444";
@@ -194,7 +190,7 @@ function loadRegions(): void {
 		.then(res => res.json())
 		.then(res => {
 
-			const data = res.data || []; // ✅ FIX
+			const data = res.data || [];
 
 			const select = document.getElementById("regionSelect") as HTMLSelectElement;
 			select.innerHTML = `<option value="">ทั้งหมด</option>`;
@@ -213,12 +209,12 @@ function loadProvinces(): void {
 	fetch("/sports_rental_system/executive/api/get_provinces.php", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ region_id: regionId }) // ✅ ส่งค่า
+		body: JSON.stringify({ region_id: regionId })
 	})
 		.then(res => res.json())
 		.then(res => {
 
-			const data = res.data || []; // ✅ FIX
+			const data = res.data || [];
 
 			const select = document.getElementById("provinceSelect") as HTMLSelectElement;
 			select.innerHTML = `<option value="">ทั้งหมด</option>`;
@@ -241,12 +237,12 @@ function loadBranches(): void {
 		body: JSON.stringify({
 			region_id: regionId,
 			province_id: provinceId
-		}) // ✅ ส่งค่า
+		})
 	})
 		.then(res => res.json())
 		.then(res => {
 
-			const data = res.data || []; // ✅ FIX
+			const data = res.data || [];
 
 			const select = document.getElementById("branchSelect") as HTMLSelectElement;
 			select.innerHTML = `<option value="">ทั้งหมด</option>`;
@@ -257,10 +253,6 @@ function loadBranches(): void {
 		});
 }
 
-/* ==============================
-   INIT CHARTS
-============================== */
-
 function initCharts(): void {
 
 	const baseOptions = {
@@ -269,10 +261,25 @@ function initCharts(): void {
 		plugins: {
 			legend: {
 				position: "bottom"
+			},
+			tooltip: {
+				callbacks: {
+					label: function (context: any) {
+						let label = context.dataset.label || "";
+						let value = context.raw ?? 0;
+
+						// 👉 ใส่หน่วยตาม label
+						if (label.includes("รายได้")) {
+							return `${label}: ${value.toLocaleString()} บาท`;
+						}
+						return `${label}: ${value.toLocaleString()} ครั้ง`;
+					}
+				}
 			}
 		}
 	};
 
+	// 📊 BOOKING TREND
 	bookingTrendChart = new Chart(document.getElementById("bookingTrendChart"), {
 		type: "line",
 		data: {
@@ -286,9 +293,19 @@ function initCharts(): void {
 				tension: 0.4
 			}]
 		},
-		options: baseOptions
+		options: {
+			...baseOptions,
+			scales: {
+				y: {
+					ticks: {
+						callback: (v: any) => v + " ครั้ง"
+					}
+				}
+			}
+		}
 	});
 
+	// 📈 REVENUE TREND
 	revenueTrendChart = new Chart(document.getElementById("revenueTrendChart"), {
 		type: "line",
 		data: {
@@ -302,9 +319,19 @@ function initCharts(): void {
 				tension: 0.4
 			}]
 		},
-		options: baseOptions
+		options: {
+			...baseOptions,
+			scales: {
+				y: {
+					ticks: {
+						callback: (v: any) => v.toLocaleString() + " บาท"
+					}
+				}
+			}
+		}
 	});
 
+	// 📊 CHANNEL
 	channelChart = new Chart(document.getElementById("channelChart"), {
 		type: "bar",
 		data: {
@@ -315,34 +342,77 @@ function initCharts(): void {
 				backgroundColor: ["#3b82f6", "#22c55e"]
 			}]
 		},
-		options: baseOptions
-	});
-
-	bookingRatioChart = new Chart(document.getElementById("bookingRatioChart"), {
-		type: "doughnut",
-		data: {
-			labels: [],
-			datasets: [{
-				data: [],
-				backgroundColor: [] 
-			}]
-		},
 		options: {
 			...baseOptions,
-			cutout: "65%"
+			scales: {
+				y: {
+					ticks: {
+						callback: (v: any) => v.toLocaleString() + " บาท"
+					}
+				}
+			}
 		}
 	});
 
-	branchChart = new Chart(document.getElementById("topChart"), {
-		type: "bar",
-		data: {
-			labels: [],
-			datasets: [{
-				label: "จำนวนการจอง",
-				data: [],
-				backgroundColor: "#ff7a00"
-			}]
+// 🥧 STATUS
+bookingRatioChart = new Chart(document.getElementById("bookingRatioChart"), {
+	type: "doughnut",
+	data: {
+		labels: [],
+		datasets: [{
+			data: [],
+			backgroundColor: []
+		}]
+	},
+	options: {
+		...baseOptions,
+		cutout: "65%",
+		plugins: {
+			tooltip: {
+				callbacks: {
+					label: function (context: any) {
+						let label = context.label || "";
+						let val = context.raw || 0;
+						return `${label}: ${val.toLocaleString()} ครั้ง`; // ✅ แก้เป็น "ครั้ง"
+					}
+				}
+			}
+		}
+	}
+});
+
+
+// 🏢 ALL BRANCHES (รายได้สุทธิ)
+branchChart = new Chart(document.getElementById("topChart"), {
+	type: "bar",
+	data: {
+		labels: [],
+		datasets: [{
+			label: "รายได้สุทธิ", // ✅ เปลี่ยน label
+			data: [],
+			backgroundColor: "#ff7a00"
+		}]
+	},
+	options: {
+		...baseOptions,
+		indexAxis: "y",
+		scales: {
+			x: {
+				ticks: {
+					callback: (v: any) => v.toLocaleString() + " บาท" // ✅ format เงิน
+				}
+			}
 		},
-		options: baseOptions
-	});
+		plugins: {
+			tooltip: {
+				callbacks: {
+					label: function (context: any) {
+						let val = context.raw || 0;
+						return `รายได้: ${val.toLocaleString()} บาท`; // ✅ tooltip เป็นเงิน
+					}
+				}
+			}
+		}
+	}
+});
 }

@@ -104,9 +104,10 @@ $whereSQL
 
 $sqlCancel = "
 SELECT 
-(SUM(CASE WHEN bk.booking_status_id = 6 THEN 1 ELSE 0 END) * 100.0 
- / NULLIF(SUM(CASE WHEN bk.booking_status_id IN (5,6) THEN 1 ELSE 0 END),0)) 
-AS cancellation_rate
+(
+  SUM(CASE WHEN bk.booking_status_id = 6 THEN 1 ELSE 0 END) * 100.0 
+  / NULLIF(COUNT(*), 0)
+) AS cancellation_rate
 FROM bookings bk
 $join
 $whereSQL
@@ -185,13 +186,13 @@ SELECT
 CASE 
     WHEN bk.booking_status_id = 5 THEN 'สำเร็จ'
     WHEN bk.booking_status_id = 6 THEN 'ยกเลิก'
+    ELSE 'รอดำเนินการ'
 END AS status,
 COUNT(*) total
 FROM bookings bk
 $join
 $whereSQL
-" . ($whereSQL ? " AND" : " WHERE") . " bk.booking_status_id IN (5,6)
-GROUP BY bk.booking_status_id
+GROUP BY status
 ";
 
 $stmtR = $conn->prepare($sqlRatio);
@@ -247,7 +248,7 @@ if ($branch_id !== "") {
 $sqlBranch = "
 SELECT 
     b.name,
-    COUNT(bk.booking_id) AS total
+    COALESCE(SUM(bk.net_amount),0) AS total
 FROM branches b
 LEFT JOIN bookings bk 
     ON bk.branch_id = b.branch_id
