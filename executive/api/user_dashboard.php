@@ -4,30 +4,54 @@ header("Content-Type: application/json; charset=utf-8");
 
 try {
 
-$data = json_decode(file_get_contents("php://input"), true);
-if (!$data) $data = [];
+$data = json_decode(file_get_contents("php://input"), true) ?? [];
 
-/* ===============================
-   RECEIVE FILTER
-================================ */
+/* ==============================
+   FILTER
+============================== */
 
-$range         = $data["range"] ?? "";
-$start         = $data["start"] ?? "";
-$end           = $data["end"] ?? "";
-$region_id     = $data["region_id"] ?? "";
-$province_id   = $data["province_id"] ?? "";
-$branch_id     = $data["branch_id"] ?? "";
-$customer_type = $data["customer_type"] ?? "";
-$faculty_id    = $data["faculty_id"] ?? "";
-$study_year    = $data["study_year"] ?? "";
+$region_id   = $data["region_id"] ?? "";
+$province_id = $data["province_id"] ?? "";
+$branch_id   = $data["branch_id"] ?? "";
+$range       = $data["range"] ?? "";
+$start       = $data["start"] ?? "";
+$end         = $data["end"] ?? "";
 
-/* ===============================
-   BUILD WHERE
-================================ */
+/* ==============================
+   JOIN BASE
+============================== */
+
+$join = "
+JOIN branches b ON bk.branch_id = b.branch_id
+JOIN provinces p ON b.province_id = p.province_id
+JOIN region r ON p.region_id = r.region_id
+";
+
+/* ==============================
+   WHERE BASE
+============================== */
 
 $where = [];
 $params = [];
 $types = "";
+
+if ($region_id !== "") {
+    $where[] = "r.region_id = ?";
+    $params[] = (int)$region_id;
+    $types .= "i";
+}
+
+if ($province_id !== "") {
+    $where[] = "p.province_id = ?";
+    $params[] = (int)$province_id;
+    $types .= "i";
+}
+
+if ($branch_id !== "") {
+    $where[] = "bk.branch_id = ?";
+    $params[] = (int)$branch_id;
+    $types .= "i";
+}
 
 /* DATE */
 
@@ -44,294 +68,290 @@ elseif ($range === "custom" && $start && $end) {
     $types .= "ss";
 }
 
-/* LOCATION */
+$whereSQL = count($where) ? "WHERE " . implode(" AND ", $where) : "";
+
+/* ==============================
+   HELPER
+============================== */
+
+function runQuery($conn, $sql, $types, $params) {
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new Exception($conn->error);
+    }
+    if ($types) $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_assoc();
+}
+
+/* ==============================
+   KPI
+============================== */
+
+$totalCustomer = runQuery($conn,"
+SELECT COUNT(DISTINCT bk.customer_id) total_customers
+FROM bookings bk
+$join
+$whereSQL
+", $types, $params);
+
+$totalCust = (int)$totalCustomer["total_customers"];
+
+/*  REPEAT (LIFETIME) */
+$repeat = runQuery($conn,"
+SELECT COUNT(*) repeat_customers FROM (
+    SELECT customer_id
+    FROM bookings
+    GROUP BY customer_id
+    HAVING COUNT(*) > 1
+) t
+WHERE customer_id IN (
+    SELECT DISTINCT bk.customer_id
+    FROM bookings bk
+    $join
+    $whereSQL
+)
+", $types, $params)['repeat_customers'];
+
+$repeat_rate = ($totalCust > 0) ? ($repeat / $totalCust) * 100 : 0;
+
+/* AVG BOOKING */
+$avgBooking = runQuery($conn,"
+SELECT COUNT(*) / NULLIF(COUNT(DISTINCT bk.customer_id),0) avg_booking
+FROM bookings bk
+$join
+$whereSQL
+", $types, $params);
+
+/* ARPU */
+$arpu = runQuery($conn,"
+SELECT 
+SUM(bk.net_amount) / NULLIF(COUNT(DISTINCT CASE WHEN bk.booking_status_id = 5 THEN bk.customer_id END),0) arpu
+FROM bookings bk
+$join
+$whereSQL
+AND bk.booking_status_id = 5
+", $types, $params);
+
+
+/* ==============================
+   CHART 1: NEW VS RETURNING
+============================== */
+
+$newReturn = runQuery($conn,"
+SELECT 
+SUM(CASE WHEN cnt = 1 THEN 1 ELSE 0 END) new_customers,
+SUM(CASE WHEN cnt > 1 THEN 1 ELSE 0 END) returning_customers
+FROM (
+    SELECT bk.customer_id, COUNT(*) cnt
+    FROM bookings bk
+    $join
+    $whereSQL
+    GROUP BY bk.customer_id
+) t
+", $types, $params);
+
+/* ==============================
+   CHART 2: BOOKING GROUP
+============================== */
+
+$stmt = $conn->prepare("
+SELECT cnt, COUNT(*) total
+FROM (
+    SELECT bk.customer_id, COUNT(*) cnt
+    FROM bookings bk
+    $join
+    $whereSQL
+    GROUP BY bk.customer_id
+) t
+GROUP BY cnt
+ORDER BY cnt ASC
+");
+
+if (!$stmt) throw new Exception($conn->error);
+if ($types) $stmt->bind_param($types, ...$params);
+
+$stmt->execute();
+$res = $stmt->get_result();
+
+$labels = [];
+$data   = [];
+
+while ($row = $res->fetch_assoc()) {
+    $labels[] = $row["cnt"] . " ครั้ง";
+    $data[]   = (int)$row["total"];
+}
+
+/* ==============================
+   CHART 3: REVENUE BY TYPE
+============================== */
+
+$typeWhere = $where;
+$typeWhere[] = "bk.booking_status_id = 5";
+
+$typeSQL = count($typeWhere)
+    ? "WHERE " . implode(" AND ", $typeWhere)
+    : "";
+
+$stmtType = $conn->prepare("
+SELECT c.customer_type, SUM(bk.net_amount) revenue
+FROM bookings bk
+JOIN customers c ON bk.customer_id = c.customer_id
+$join
+$typeSQL
+GROUP BY c.customer_type
+");
+
+if (!$stmtType) throw new Exception($conn->error);
+if ($types) $stmtType->bind_param($types, ...$params);
+$stmtType->execute();
+
+$typeLabels = [];
+$typeData = [];
+
+$resType = $stmtType->get_result();
+while ($row = $resType->fetch_assoc()) {
+    $typeLabels[] = $row["customer_type"];
+    $typeData[]   = (float)$row["revenue"];
+}
+
+/* ==============================
+   CHART 4: CANCEL BY TYPE
+============================== */
+
+$stmtCT = $conn->prepare("
+SELECT c.customer_type,
+SUM(CASE WHEN bk.booking_status_id = 6 THEN 1 ELSE 0 END) cancelled,
+COUNT(*) total
+FROM bookings bk
+JOIN customers c ON bk.customer_id = c.customer_id
+$join
+$whereSQL
+GROUP BY c.customer_type
+");
+
+if (!$stmtCT) throw new Exception($conn->error);
+if ($types) $stmtCT->bind_param($types, ...$params);
+$stmtCT->execute();
+
+$cancelTypeLabels = [];
+$cancelTypeData = [];
+
+$resCT = $stmtCT->get_result();
+while ($row = $resCT->fetch_assoc()) {
+    $rate = ($row["total"] > 0) ? ($row["cancelled"] / $row["total"]) * 100 : 0;
+    $cancelTypeLabels[] = $row["customer_type"];
+    $cancelTypeData[]   = round($rate,2);
+}
+
+/* ==============================
+   CHART 5: CUSTOMER BY BRANCH
+============================== */
+
+$paramsBranch = [];
+$typesBranch = "";
+
+$sqlBranch = "
+SELECT 
+    b.name,
+    COUNT(DISTINCT bk.customer_id) total_customers
+FROM branches b
+LEFT JOIN provinces p ON b.province_id = p.province_id
+LEFT JOIN region r ON p.region_id = r.region_id
+LEFT JOIN bookings bk 
+    ON bk.branch_id = b.branch_id
+";
+
+/* DATE */
+if ($range === "7days") {
+    $sqlBranch .= " AND bk.pickup_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+}
+elseif ($range === "30days") {
+    $sqlBranch .= " AND bk.pickup_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+}
+elseif ($range === "1year") {
+    $sqlBranch .= " AND bk.pickup_time >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+}
+elseif ($range === "custom" && $start && $end) {
+    $sqlBranch .= " AND DATE(bk.pickup_time) BETWEEN ? AND ?";
+    $paramsBranch[] = $start;
+    $paramsBranch[] = $end;
+    $typesBranch .= "ss";
+}
+
+$whereBranch = [];
 
 if ($region_id !== "") {
-    $where[] = "r.region_id = ?";
-    $params[] = (int)$region_id;
-    $types .= "i";
+    $whereBranch[] = "r.region_id = ?";
+    $paramsBranch[] = (int)$region_id;
+    $typesBranch .= "i";
 }
 
 if ($province_id !== "") {
-    $where[] = "p.province_id = ?";
-    $params[] = (int)$province_id;
-    $types .= "i";
+    $whereBranch[] = "p.province_id = ?";
+    $paramsBranch[] = (int)$province_id;
+    $typesBranch .= "i";
 }
 
 if ($branch_id !== "") {
-    $where[] = "bk.branch_id = ?";
-    $params[] = $branch_id;
-    $types .= "s";
+    $whereBranch[] = "b.branch_id = ?";
+    $paramsBranch[] = (int)$branch_id;
+    $typesBranch .= "i";
 }
 
-/* CUSTOMER */
-
-if ($customer_type !== "") {
-    $where[] = "c.customer_type = ?";
-    $params[] = $customer_type;
-    $types .= "s";
+if ($whereBranch) {
+    $sqlBranch .= " WHERE " . implode(" AND ", $whereBranch);
 }
 
-if ($faculty_id !== "") {
-    $where[] = "c.faculty_id = ?";
-    $params[] = (int)$faculty_id;
-    $types .= "i";
-}
+$sqlBranch .= " GROUP BY b.branch_id ORDER BY total_customers DESC";
 
-if ($study_year !== "") {
-    $where[] = "c.study_year = ?";
-    $params[] = (int)$study_year;
-    $types .= "i";
-}
+$stmtB = $conn->prepare($sqlBranch);
+if (!$stmtB) throw new Exception($conn->error);
+if ($typesBranch) $stmtB->bind_param($typesBranch, ...$paramsBranch);
+$stmtB->execute();
 
-$whereSQL = count($where) ? "WHERE " . implode(" AND ", $where) : "";
-
-/* =================================
-   BASE JOIN
-================================= */
-
-$baseJoin = "
-FROM bookings bk
-JOIN customers c ON bk.customer_id = c.customer_id
-JOIN branches b ON bk.branch_id = b.branch_id
-JOIN provinces p ON b.province_id = p.province_id
-JOIN region r ON p.region_id = r.region_id
-";
-
-/* =================================
-   TOTAL USERS
-================================= */
-
-$sqlTotal = "
-SELECT COUNT(DISTINCT c.customer_id) total
-$baseJoin
-$whereSQL
-";
-
-$stmt = $conn->prepare($sqlTotal);
-if ($types) $stmt->bind_param($types, ...$params);
-$stmt->execute();
-$total_users = (int)($stmt->get_result()->fetch_assoc()["total"] ?? 0);
-
-/* =================================
-   STUDENT / EXTERNAL COUNT
-================================= */
-
-$sqlType = "
-SELECT c.customer_type, COUNT(DISTINCT c.customer_id) total
-$baseJoin
-$whereSQL
-GROUP BY c.customer_type
-";
-
-$stmtType = $conn->prepare($sqlType);
-if ($types) $stmtType->bind_param($types, ...$params);
-$stmtType->execute();
-$resType = $stmtType->get_result();
-
-$student_count = 0;
-$external_count = 0;
-
-while ($row = $resType->fetch_assoc()) {
-    if ($row["customer_type"] === "student")
-        $student_count = (int)$row["total"];
-    elseif ($row["customer_type"] === "general")
-        $external_count = (int)$row["total"];
-}
-
-/* CALCULATE PERCENT */
-
-$student_percent = $total_users > 0
-    ? round(($student_count / $total_users) * 100)
-    : 0;
-
-$external_percent = $total_users > 0
-    ? round(($external_count / $total_users) * 100)
-    : 0;
-
-/* =================================
-   AVG BOOKING PER USER
-================================= */
-
-$sqlAvg = "
-SELECT COUNT(bk.booking_id) total_booking,
-       COUNT(DISTINCT c.customer_id) total_user
-$baseJoin
-$whereSQL
-";
-
-$stmtAvg = $conn->prepare($sqlAvg);
-if ($types) $stmtAvg->bind_param($types, ...$params);
-$stmtAvg->execute();
-$rowAvg = $stmtAvg->get_result()->fetch_assoc();
-
-$total_booking = (int)($rowAvg["total_booking"] ?? 0);
-$total_user    = (int)($rowAvg["total_user"] ?? 0);
-
-$avg_booking = $total_user > 0
-    ? round($total_booking / $total_user, 2)
-    : 0;
-
-/* =================================
-   GENDER RATIO
-================================= */
-
-$sqlGender = "
-SELECT g.name_th, COUNT(DISTINCT c.customer_id) total
-$baseJoin
-JOIN genders g ON c.gender_id = g.gender_id
-$whereSQL
-GROUP BY g.name_th
-";
-
-$stmtGender = $conn->prepare($sqlGender);
-if ($types) $stmtGender->bind_param($types, ...$params);
-$stmtGender->execute();
-$resGender = $stmtGender->get_result();
-
-$genderLabels = [];
-$genderData = [];
-
-while($row = $resGender->fetch_assoc()){
-    $genderLabels[] = trim($row["name_th"]);
-    $genderData[] = (int)$row["total"];
-}
-
-/* =================================
-   TOP FACULTY
-================================= */
-
-$sqlFaculty = "
-SELECT f.name, COUNT(DISTINCT c.customer_id) total
-$baseJoin
-JOIN faculty f ON c.faculty_id = f.id
-$whereSQL
-GROUP BY f.name
-ORDER BY total DESC
-LIMIT 5
-";
-
-$stmtFaculty = $conn->prepare($sqlFaculty);
-if ($types) $stmtFaculty->bind_param($types, ...$params);
-$stmtFaculty->execute();
-$resFaculty = $stmtFaculty->get_result();
-
-$facultyLabels = [];
-$facultyData = [];
-
-while($row = $resFaculty->fetch_assoc()){
-    $facultyLabels[] = $row["name"];
-    $facultyData[] = (int)$row["total"];
-}
-
-/* =================================
-   USER BY STUDY YEAR
-================================= */
-
-$sqlYear = "
-SELECT c.study_year, COUNT(DISTINCT c.customer_id) total
-$baseJoin
-$whereSQL
-AND c.study_year IS NOT NULL
-GROUP BY c.study_year
-ORDER BY c.study_year ASC
-";
-
-$stmtYear = $conn->prepare($sqlYear);
-if ($types) $stmtYear->bind_param($types, ...$params);
-$stmtYear->execute();
-$resYear = $stmtYear->get_result();
-
-$yearLabels = [];
-$yearData = [];
-
-while($row = $resYear->fetch_assoc()){
-    $yearLabels[] = "ปี " . $row["study_year"];
-    $yearData[] = (int)$row["total"];
-}
-
-/* =================================
-   USER BY BRANCH
-================================= */
-
-$sqlBranch = "
-SELECT b.name, COUNT(DISTINCT c.customer_id) total
-$baseJoin
-$whereSQL
-GROUP BY b.branch_id
-ORDER BY total DESC
-LIMIT 5
-";
-
-$stmtBranch = $conn->prepare($sqlBranch);
-if ($types) $stmtBranch->bind_param($types, ...$params);
-$stmtBranch->execute();
-$resBranch = $stmtBranch->get_result();
+$resB = $stmtB->get_result();
 
 $branchLabels = [];
 $branchData = [];
 
-while($row = $resBranch->fetch_assoc()){
+while ($row = $resB->fetch_assoc()) {
     $branchLabels[] = $row["name"];
-    $branchData[] = (int)$row["total"];
+    $branchData[]   = (int)$row["total_customers"];
 }
 
-/* =================================
-   TOP 10 USERS
-================================= */
-
-$sqlTopUser = "
-SELECT c.name, COUNT(bk.booking_id) total
-$baseJoin
-$whereSQL
-GROUP BY c.customer_id
-ORDER BY total DESC
-LIMIT 10
-";
-
-$stmtTop = $conn->prepare($sqlTopUser);
-if ($types) $stmtTop->bind_param($types, ...$params);
-$stmtTop->execute();
-$resTop = $stmtTop->get_result();
-
-$topUserLabels = [];
-$topUserData = [];
-
-while($row = $resTop->fetch_assoc()){
-    $topUserLabels[] = $row["name"];
-    $topUserData[] = (int)$row["total"];
-}
-
-/* =================================
+/* ==============================
    RESPONSE
-================================= */
+============================== */
 
 echo json_encode([
-    "kpi" => [
-        "total_users"      => $total_users,
-        "student_percent"  => $student_percent,
-        "external_percent" => $external_percent,
-        "avg_booking"      => $avg_booking
+    "kpi"=>[
+        "total_customers" => $totalCust,
+        "repeat_rate"     => round($repeat_rate,2),
+        "avg_booking"     => (float)$avgBooking["avg_booking"],
+        "arpu"            => (float)$arpu["arpu"]
     ],
-    "gender_ratio" => [
-        "labels" => $genderLabels,
-        "data"   => $genderData
-    ],
-    "user_by_year" => [
-    "labels" => $yearLabels,
-    "data"   => $yearData
-    ],
-    "top_faculty" => [
-        "labels" => $facultyLabels,
-        "data"   => $facultyData
-    ],
-    "user_by_branch" => [
-    "labels" => $branchLabels,
-    "data"   => $branchData
-],
-    "top_users" => [
-        "labels" => $topUserLabels,
-        "data"   => $topUserData
+    "charts"=>[
+        "new_vs_returning"=>[
+            "new" => (int)$newReturn["new_customers"],
+            "returning" => (int)$newReturn["returning_customers"]
+        ],
+        "booking_group"=>[
+        "labels"=>$labels,
+        "data"=>$data
+        ],
+        "revenue_by_type"=>[
+            "labels"=>$typeLabels,
+            "data"=>$typeData
+        ],
+        "cancel_by_type"=>[
+            "labels"=>$cancelTypeLabels,
+            "data"=>$cancelTypeData
+        ],
+        "customers_by_branch"=>[
+            "labels"=>$branchLabels,
+            "data"=>$branchData
+        ]
     ]
 ]);
 

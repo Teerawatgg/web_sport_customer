@@ -2,168 +2,147 @@
 <html lang="th">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta charset="UTF-8">
+	<title>Customer Dashboard</title>
 
-  <title>User Dashboard</title>
-
-  <link rel="stylesheet" href="css/user.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<link rel="stylesheet" href="css/index.css">
+	<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai&display=swap" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
-  <header class="main-header">
+	<!-- HEADER -->
+	<header class="main-header">
 
-    <div class="header-top">
+		<div class="header-top">
+			<div class="brand">
+				<span class="brand-name">ระบบเช่าอุปกรณ์กีฬา</span>
+				<small>Sports Equipment Rental System</small>
+			</div>
 
-      <div class="brand">
-        <span class="brand-name">ระบบเช่าอุปกรณ์กีฬา</span>
-        <small>Sports Equipment Rental System</small>
-      </div>
+			<div class="staff-zone">
+				<a href="profile.html" class="profile-btn">👤 โปรไฟล์</a>
+			</div>
+		</div>
 
-      <div class="staff-zone">
-        <a href="profile.html" class="profile-btn">👤 โปรไฟล์</a>
-      </div>
+		<div class="header-bottom">
+			<nav class="main-nav">
+				<a href="index.html" class="nav-item">Dashboard</a>
+				<a href="user.html" class="nav-item active">ลูกค้า</a>
+				<a href="equipment_dashboard.html" class="nav-item">อุปกรณ์</a>
+			</nav>
+		</div>
 
-    </div>
+	</header>
 
-    <div class="header-bottom">
-      <nav class="main-nav">
-        <a href="index.html" class="nav-item">ภาพรวมอุปกรณ์</a>
-        <a href="user.html" class="nav-item active">ผู้ใช้</a>
-        <a href="equipment_dashboard.html" class="nav-item">สถานะอุปกรณ์</a>
-      </nav>
-    </div>
-  </header>
+	<div class="container">
 
-  <div class="container">
+		<!-- SIDEBAR -->
+		<aside class="sidebar">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
+			<h3>ตัวกรองข้อมูล</h3>
 
-      <h3>ตัวกรอง</h3>
+			<label>ช่วงเวลา</label>
+			<select id="rangeSelect">
+				<option value="7days">7 วัน</option>
+				<option value="30days" selected>30 วัน</option>
+				<option value="1year">1 ปี</option>
+				<option value="custom">กำหนดเอง</option>
+			</select>
 
-      <label>ช่วงเวลา</label>
-      <select id="rangeSelect">
-        <option value="30days" selected>30 วัน</option>
-        <option value="7days">7 วัน</option>
-        <option value="1year">1 ปี</option>
-        <option value="custom">กำหนดเอง</option>
-      </select>
+			<div id="customDateBox" class="custom-date" style="display:none;">
+				<input type="date" id="startDate">
+				<input type="date" id="endDate">
+			</div>
 
-      <div id="customDateBox" style="display:none;">
-        <input type="date" id="startDate">
-        <input type="date" id="endDate">
-      </div>
+			<label>ภูมิภาค</label>
+			<select id="regionSelect"></select>
 
-      <label>ภูมิภาค</label>
-      <select id="regionSelect"></select>
+			<label>จังหวัด</label>
+			<select id="provinceSelect"></select>
 
-      <label>จังหวัด</label>
-      <select id="provinceSelect"></select>
+			<label>สาขา</label>
+			<select id="branchSelect"></select>
 
-      <label>สาขา</label>
-      <select id="branchSelect"></select>
+			<button id="resetFilter" class="btn-reset">รีเซ็ตตัวกรอง</button>
 
-      <label>ประเภทลูกค้า</label>
-      <select id="customerTypeSelect">
-        <option value="">ทั้งหมด</option>
-        <option value="student">นักศึกษา</option>
-        <option value="general">บุคคลทั่วไป</option>
-      </select>
-
-      <label>คณะ</label>
-      <select id="facultySelect"></select>
-
-      <label>ชั้นปี</label>
-      <select id="studyYearSelect">
-        <option value="">ทั้งหมด</option>
-        <option value="1">ปี 1</option>
-        <option value="2">ปี 2</option>
-        <option value="3">ปี 3</option>
-        <option value="4">ปี 4</option>
-        <option value="5">ปี 5</option>
-        <option value="6">ปี 6</option>
-      </select>
-
-      <button id="resetFilter" class="btn-reset">รีเซ็ตตัวกรอง</button>
-
-    </aside>
-
-    <!-- MAIN -->
-    <main class="main">
-
-      <!-- ================= KPI ================= -->
-      <section class="kpi-grid">
-
-        <div class="kpi-card blue">
-          <div class="kpi-title">ผู้ใช้ทั้งหมด</div>
-          <div class="kpi-value" id="totalUsers">0</div>
-        </div>
-
-        <div class="kpi-card green">
-          <div class="kpi-title">นักศึกษา</div>
-          <div class="kpi-value" id="studentPercent">0%</div>
-        </div>
-
-        <div class="kpi-card purple">
-          <div class="kpi-title">บุคคลภายนอก</div>
-          <div class="kpi-value" id="externalPercent">0%</div>
-        </div>
-
-        <div class="kpi-card orange">
-          <div class="kpi-title">การจองเฉลี่ยต่อคน</div>
-          <div class="kpi-value" id="avgBooking">0</div>
-        </div>
-
-      </section>
+		</aside>
 
 
-      <!-- ================= USER STRUCTURE ================= -->
+		<!-- MAIN -->
+		<main class="main">
 
-      <section class="grid-2">
+			<!-- KPI -->
+			<section class="kpi-grid">
 
-        <div class="card">
-          <h3>สัดส่วนเพศ</h3>
-          <canvas id="genderChart"></canvas>
-        </div>
+				<div class="kpi-card">
+					<div class="kpi-title">จำนวนลูกค้า</div>
+					<div class="kpi-value" id="kpiBookings">-</div>
+				</div>
 
-        <div class="card">
-          <h3>ผู้ใช้ตามชั้นปี</h3>
-          <canvas id="yearChart"></canvas>
-        </div>
+				<div class="kpi-card">
+					<div class="kpi-title">อัตราการกลับมาใช้ซ้ำ</div>
+					<div class="kpi-value" id="kpiRevenue">-</div>
+				</div>
 
-      </section>
+				<div class="kpi-card">
+					<div class="kpi-title">รายได้เฉลี่ยต่อคน</div>
+					<div class="kpi-value" id="kpiCancel">-</div>
+				</div>
 
-      <section class="grid-2">
+				<div class="kpi-card">
+					<div class="kpi-title">จำนวนการจองต่อคน</div>
+					<div class="kpi-value" id="kpiAvg">-</div>
+				</div>
 
-        <div class="card">
-          <h3>Top Faculty</h3>
-          <canvas id="facultyChart"></canvas>
-        </div>
-
-        <div class="card">
-          <h3>ผู้ใช้ตามสาขา (Top 5)</h3>
-          <canvas id="branchChart"></canvas>
-        </div>
-
-      </section>
+			</section>
 
 
-      <!-- ================= TOP USER ================= -->
+			<!-- 🔥 TREND -->
+			<section class="grid-2">
 
-      <section class="card large-card">
-        <h3>Top 10 ผู้ใช้</h3>
-        <canvas id="topUserChart"></canvas>
-      </section>
+				<div class="card">
+					<h3>ลูกค้าใหม่ vs ลูกค้าเดิม</h3>
+					<canvas id="bookingTrendChart"></canvas>
+				</div>
+
+				<div class="card">
+					<h3>จำนวนการใช้งานต่อคน</h3>
+					<canvas id="revenueTrendChart"></canvas>
+				</div>
+
+			</section>
 
 
-    </main>
-  </div>
+			<!-- TYPE + CANCEL -->
+			<section class="grid-2">
 
-  <script src="user.js"></script>
+				<div class="card">
+					<h3>รายได้ตามประเภทลูกค้า</h3>
+					<canvas id="channelChart"></canvas>
+				</div>
+
+				<div class="card">
+					<h3>อัตราการยกเลิกตามประเภทลูกค้า</h3>
+					<canvas id="bookingRatioChart"></canvas>
+				</div>
+
+			</section>
+
+
+			<!-- EMPTY (เผื่ออนาคต) -->
+			<section class="card">
+				<h3>การใช้งานตามสาขา</h3>
+				<canvas id="topChart"></canvas>
+			</section>
+
+		</main>
+
+	</div>
+
+	<!-- 🔥 IMPORTANT -->
+	<script src="user.js"></script>
+
 </body>
-
 </html>

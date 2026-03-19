@@ -92,7 +92,7 @@ function resetFilter(): void {
 
 function loadAll(): void {
 
-	fetch("/sports_rental_system/executive/api/dashboard_summary.php", {
+	fetch("/sports_rental_system/executive/api/dashboard_summarys.php", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(getFilter())

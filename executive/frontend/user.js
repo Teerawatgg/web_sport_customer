@@ -1,409 +1,299 @@
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
-var _this = this;
-var genderChart = null;
-var facultyChart = null;
-var topUserChart = null;
-var yearChart = null;
-var branchChart = null;
-/* ==============================
-   SAFE FETCH
-============================== */
-function safeFetch(url, options) {
-    return __awaiter(this, void 0, void 0, function () {
-        var res;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, fetch(url, options)];
-                case 1:
-                    res = _a.sent();
-                    if (!res.ok)
-                        throw new Error("HTTP error " + res.status);
-                    return [2 /*return*/, res.json()];
-            }
-        });
-    });
-}
-/* ==============================
-   INIT
-============================== */
-document.addEventListener("DOMContentLoaded", function () { return __awaiter(_this, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                initCharts();
-                return [4 /*yield*/, Promise.all([
-                        loadRegions(),
-                        loadProvinces(),
-                        loadBranches(),
-                        loadFaculties()
-                    ])];
-            case 1:
-                _a.sent();
-                bindEvents();
-                toggleCustomDate();
-                loadDashboard();
-                return [2 /*return*/];
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
         }
-    });
-}); });
-/* ==============================
-   BIND EVENTS
-============================== */
-function bindEvents() {
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
+var bookingTrendChart;
+var revenueTrendChart;
+var channelChart;
+var bookingRatioChart;
+var branchChart;
+/* ============================== */
+document.addEventListener("DOMContentLoaded", function () {
+    initCharts();
+    loadRegions();
+    loadProvinces();
+    loadBranches();
+    bindFilters();
+    loadAll();
+});
+/* ============================== FILTER */
+function bindFilters() {
     var _a;
-    var ids = [
-        "rangeSelect",
-        "regionSelect",
-        "provinceSelect",
-        "branchSelect",
-        "customerTypeSelect",
-        "facultySelect",
-        "studyYearSelect",
-        "startDate",
-        "endDate"
-    ];
+    var ids = ["rangeSelect", "regionSelect", "provinceSelect", "branchSelect", "startDate", "endDate"];
     ids.forEach(function (id) {
         var el = document.getElementById(id);
         if (!el)
             return;
-        el.addEventListener("change", function () {
-            if (id === "rangeSelect")
-                toggleCustomDate();
-            loadDashboard();
-        });
+        el.addEventListener("change", loadAll);
     });
-    (_a = document
-        .getElementById("resetFilter")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", resetFilter);
+    (_a = document.getElementById("resetFilter")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", function () { return location.reload(); });
 }
-/* ==============================
-   FILTER
-============================== */
 function getFilter() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    var _a, _b, _c, _d, _e, _f;
     return {
         range: ((_a = document.getElementById("rangeSelect")) === null || _a === void 0 ? void 0 : _a.value) || "",
         start: ((_b = document.getElementById("startDate")) === null || _b === void 0 ? void 0 : _b.value) || "",
         end: ((_c = document.getElementById("endDate")) === null || _c === void 0 ? void 0 : _c.value) || "",
         region_id: ((_d = document.getElementById("regionSelect")) === null || _d === void 0 ? void 0 : _d.value) || "",
         province_id: ((_e = document.getElementById("provinceSelect")) === null || _e === void 0 ? void 0 : _e.value) || "",
-        branch_id: ((_f = document.getElementById("branchSelect")) === null || _f === void 0 ? void 0 : _f.value) || "",
-        customer_type: ((_g = document.getElementById("customerTypeSelect")) === null || _g === void 0 ? void 0 : _g.value) || "",
-        faculty_id: ((_h = document.getElementById("facultySelect")) === null || _h === void 0 ? void 0 : _h.value) || "",
-        study_year: ((_j = document.getElementById("studyYearSelect")) === null || _j === void 0 ? void 0 : _j.value) || ""
+        branch_id: ((_f = document.getElementById("branchSelect")) === null || _f === void 0 ? void 0 : _f.value) || ""
     };
 }
-function toggleCustomDate() {
-    var rangeEl = document.getElementById("rangeSelect");
-    var box = document.getElementById("customDateBox");
-    if (!rangeEl || !box)
+/* ============================== UTIL */
+function safeArray(arr) {
+    return Array.isArray(arr) ? arr : [];
+}
+function getNiceMax(data) {
+    var max = Math.max.apply(Math, __spreadArray(__spreadArray([], data, false), [0], false));
+    if (max === 0)
+        return 5;
+    var pow = Math.pow(10, Math.floor(Math.log(max) / Math.LN10));
+    return Math.ceil(max / pow) * pow;
+}
+/* ============================== LOAD */
+function loadAll() {
+    fetch("/sports_rental_system/executive/api/user_dashboard.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getFilter())
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
+        if (result.error) {
+            console.error(result.message);
+            return;
+        }
+        var charts = result.charts || {};
+        updateKPI(result.kpi);
+        /* donut */
+        updateBookingTrend({
+            labels: ["ลูกค้าใหม่", "ลูกค้าเดิม"],
+            bookings: [
+                (_b = (_a = charts.new_vs_returning) === null || _a === void 0 ? void 0 : _a.new) !== null && _b !== void 0 ? _b : 0,
+                (_d = (_c = charts.new_vs_returning) === null || _c === void 0 ? void 0 : _c.returning) !== null && _d !== void 0 ? _d : 0
+            ]
+        });
+        /* 🔥 dynamic booking group (ตรงกับ PHP ใหม่) */
+        updateRevenueTrend({
+            labels: (_f = (_e = charts.booking_group) === null || _e === void 0 ? void 0 : _e.labels) !== null && _f !== void 0 ? _f : [],
+            revenue: (_h = (_g = charts.booking_group) === null || _g === void 0 ? void 0 : _g.data) !== null && _h !== void 0 ? _h : []
+        });
+        updateChannel({
+            labels: safeArray((_j = charts.revenue_by_type) === null || _j === void 0 ? void 0 : _j.labels),
+            data: safeArray((_k = charts.revenue_by_type) === null || _k === void 0 ? void 0 : _k.data)
+        });
+        updateBookingRatio({
+            labels: safeArray((_l = charts.cancel_by_type) === null || _l === void 0 ? void 0 : _l.labels),
+            data: safeArray((_m = charts.cancel_by_type) === null || _m === void 0 ? void 0 : _m.data)
+        });
+        updateBranches({
+            labels: safeArray((_o = charts.customers_by_branch) === null || _o === void 0 ? void 0 : _o.labels),
+            data: safeArray((_p = charts.customers_by_branch) === null || _p === void 0 ? void 0 : _p.data)
+        });
+    })
+        .catch(function (err) { return console.error(err); });
+}
+/* ============================== KPI */
+function updateKPI(kpi) {
+    var _a, _b, _c, _d;
+    document.getElementById("kpiBookings").textContent =
+        (Number((_a = kpi === null || kpi === void 0 ? void 0 : kpi.total_customers) !== null && _a !== void 0 ? _a : 0)).toLocaleString() + " คน";
+    document.getElementById("kpiRevenue").textContent =
+        (Number((_b = kpi === null || kpi === void 0 ? void 0 : kpi.repeat_rate) !== null && _b !== void 0 ? _b : 0)).toFixed(2) + " %";
+    document.getElementById("kpiAvg").textContent =
+        (Number((_c = kpi === null || kpi === void 0 ? void 0 : kpi.avg_booking) !== null && _c !== void 0 ? _c : 0)).toLocaleString() + " ครั้ง/คน";
+    document.getElementById("kpiCancel").textContent =
+        (Number((_d = kpi === null || kpi === void 0 ? void 0 : kpi.arpu) !== null && _d !== void 0 ? _d : 0)).toLocaleString() + " บาท";
+}
+/* ============================== CHART UPDATE */
+function updateRevenueTrend(data) {
+    var _a, _b;
+    if (!revenueTrendChart)
         return;
-    box.style.display = rangeEl.value === "custom" ? "block" : "none";
+    var values = (_a = data === null || data === void 0 ? void 0 : data.revenue) !== null && _a !== void 0 ? _a : [];
+    if (!values.length)
+        values = [0];
+    var maxY = getNiceMax(values);
+    revenueTrendChart.options.scales.y.min = 0;
+    revenueTrendChart.options.scales.y.max = maxY;
+    revenueTrendChart.data.labels = (_b = data === null || data === void 0 ? void 0 : data.labels) !== null && _b !== void 0 ? _b : [];
+    revenueTrendChart.data.datasets[0].data = values;
+    revenueTrendChart.update();
 }
-function resetFilter() {
-    var setValue = function (id, value) {
-        var el = document.getElementById(id);
-        if (el)
-            el.value = value;
-    };
-    setValue("rangeSelect", "30days");
-    setValue("regionSelect", "");
-    setValue("provinceSelect", "");
-    setValue("branchSelect", "");
-    setValue("customerTypeSelect", "");
-    setValue("facultySelect", "");
-    setValue("studyYearSelect", "");
-    setValue("startDate", "");
-    setValue("endDate", "");
-    toggleCustomDate();
-    loadDashboard();
+function updateChannel(data) {
+    var _a, _b;
+    if (!channelChart)
+        return;
+    var labels = ((_a = data === null || data === void 0 ? void 0 : data.labels) === null || _a === void 0 ? void 0 : _a.length) ? data.labels : ["ไม่มีข้อมูล"];
+    var values = ((_b = data === null || data === void 0 ? void 0 : data.data) === null || _b === void 0 ? void 0 : _b.length) ? data.data : [0];
+    var maxY = getNiceMax(values);
+    channelChart.options.scales.y.min = 0;
+    channelChart.options.scales.y.max = maxY;
+    channelChart.data.labels = labels;
+    channelChart.data.datasets[0].data = values;
+    channelChart.update();
 }
-/* ==============================
-   LOAD DASHBOARD
-============================== */
-function loadDashboard() {
-    return __awaiter(this, void 0, void 0, function () {
-        var result, err_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, safeFetch("/sports_rental_system/executive/api/user_dashboard.php", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(getFilter())
-                        })];
-                case 1:
-                    result = _a.sent();
-                    updateKPI((result === null || result === void 0 ? void 0 : result.kpi) || {});
-                    updateGender((result === null || result === void 0 ? void 0 : result.gender_ratio) || {});
-                    updateFaculty((result === null || result === void 0 ? void 0 : result.top_faculty) || {});
-                    updateTopUser((result === null || result === void 0 ? void 0 : result.top_users) || {});
-                    updateYear((result === null || result === void 0 ? void 0 : result.user_by_year) || {});
-                    updateBranch((result === null || result === void 0 ? void 0 : result.user_by_branch) || {});
-                    return [3 /*break*/, 3];
-                case 2:
-                    err_1 = _a.sent();
-                    console.error("โหลด user dashboard ไม่สำเร็จ", err_1);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
-            }
+function updateBookingTrend(data) {
+    var _a, _b;
+    if (!bookingTrendChart)
+        return;
+    bookingTrendChart.data.labels = (_a = data === null || data === void 0 ? void 0 : data.labels) !== null && _a !== void 0 ? _a : [];
+    bookingTrendChart.data.datasets[0].data = (_b = data === null || data === void 0 ? void 0 : data.bookings) !== null && _b !== void 0 ? _b : [];
+    bookingTrendChart.update();
+}
+function updateBookingRatio(data) {
+    var _a, _b;
+    if (!bookingRatioChart)
+        return;
+    var values = (_a = data === null || data === void 0 ? void 0 : data.data) !== null && _a !== void 0 ? _a : [];
+    if (!values.length)
+        values = [1];
+    bookingRatioChart.data.labels = (_b = data === null || data === void 0 ? void 0 : data.labels) !== null && _b !== void 0 ? _b : ["ไม่มีข้อมูล"];
+    bookingRatioChart.data.datasets[0].data = values;
+    bookingRatioChart.update();
+}
+function updateBranches(data) {
+    var _a, _b;
+    if (!branchChart)
+        return;
+    var labels = ((_a = data === null || data === void 0 ? void 0 : data.labels) === null || _a === void 0 ? void 0 : _a.length) ? data.labels : ["ไม่มีข้อมูล"];
+    var values = ((_b = data === null || data === void 0 ? void 0 : data.data) === null || _b === void 0 ? void 0 : _b.length) ? data.data : [0];
+    var maxY = getNiceMax(values);
+    branchChart.options.scales.y.min = 0;
+    branchChart.options.scales.y.max = maxY;
+    branchChart.data.labels = labels;
+    branchChart.data.datasets[0].data = values;
+    branchChart.update();
+}
+/* ============================== DROPDOWN */
+function loadRegions() {
+    fetch("/sports_rental_system/executive/api/get_regions.php")
+        .then(function (res) { return res.json(); })
+        .then(function (res) {
+        var data = res.data || [];
+        var select = document.getElementById("regionSelect");
+        select.innerHTML = "<option value=\"\">\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14</option>";
+        data.forEach(function (r) {
+            select.innerHTML += "<option value=\"".concat(r.region_id, "\">").concat(r.region_name, "</option>");
         });
     });
 }
-/* ==============================
-   KPI (UPDATED)
-============================== */
-function setText(id, value) {
-    var el = document.getElementById(id);
-    if (el)
-        el.textContent = value;
+function loadProvinces() {
+    var _a;
+    var regionId = ((_a = document.getElementById("regionSelect")) === null || _a === void 0 ? void 0 : _a.value) || "";
+    fetch("/sports_rental_system/executive/api/get_provinces.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region_id: regionId })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (res) {
+        var data = res.data || [];
+        var select = document.getElementById("provinceSelect");
+        select.innerHTML = "<option value=\"\">\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14</option>";
+        data.forEach(function (p) {
+            select.innerHTML += "<option value=\"".concat(p.province_id, "\">").concat(p.name, "</option>");
+        });
+    });
 }
-function updateKPI(kpi) {
-    var _a, _b, _c, _d;
-    setText("totalUsers", String((_a = kpi === null || kpi === void 0 ? void 0 : kpi.total_users) !== null && _a !== void 0 ? _a : 0));
-    setText("studentPercent", String((_b = kpi === null || kpi === void 0 ? void 0 : kpi.student_percent) !== null && _b !== void 0 ? _b : 0) + "%");
-    setText("externalPercent", String((_c = kpi === null || kpi === void 0 ? void 0 : kpi.external_percent) !== null && _c !== void 0 ? _c : 0) + "%");
-    setText("avgBooking", String((_d = kpi === null || kpi === void 0 ? void 0 : kpi.avg_booking) !== null && _d !== void 0 ? _d : 0));
+function loadBranches() {
+    var _a, _b;
+    var regionId = ((_a = document.getElementById("regionSelect")) === null || _a === void 0 ? void 0 : _a.value) || "";
+    var provinceId = ((_b = document.getElementById("provinceSelect")) === null || _b === void 0 ? void 0 : _b.value) || "";
+    fetch("/sports_rental_system/executive/api/get_branches.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            region_id: regionId,
+            province_id: provinceId
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (res) {
+        var data = res.data || [];
+        var select = document.getElementById("branchSelect");
+        select.innerHTML = "<option value=\"\">\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14</option>";
+        data.forEach(function (b) {
+            select.innerHTML += "<option value=\"".concat(b.branch_id, "\">").concat(b.name, "</option>");
+        });
+    });
 }
-/* ==============================
-   UPDATE CHARTS
-============================== */
-function updateGender(data) {
-    if (!genderChart)
-        return;
-    genderChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    genderChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
-    genderChart.update();
-}
-function updateFaculty(data) {
-    if (!facultyChart)
-        return;
-    facultyChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    facultyChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
-    facultyChart.update();
-}
-function updateTopUser(data) {
-    if (!topUserChart)
-        return;
-    topUserChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    topUserChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
-    topUserChart.update();
-}
-function updateYear(data) {
-    if (!yearChart)
-        return;
-    yearChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    yearChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
-    yearChart.update();
-}
-function updateBranch(data) {
-    if (!branchChart)
-        return;
-    branchChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    branchChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
-    branchChart.update();
-}
-/* ==============================
-   INIT CHARTS
-============================== */
+/* ============================== INIT CHART */
 function initCharts() {
-    var genderEl = document.getElementById("genderChart");
-    var facultyEl = document.getElementById("facultyChart");
-    var topUserEl = document.getElementById("topUserChart");
-    if (!genderEl || !facultyEl || !topUserEl) {
-        console.error("Chart canvas not found");
-        return;
-    }
-    genderChart = new Chart(genderEl, {
+    var baseOptions = function (unit) {
+        if (unit === void 0) { unit = ""; }
+        return ({
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: "bottom" }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0,
+                        callback: function (v) { return (v % 1 === 0 ? v + " " + unit : ""); }
+                    }
+                }
+            }
+        });
+    };
+    bookingTrendChart = new Chart(document.getElementById("bookingTrendChart"), {
+        type: "doughnut",
+        data: { labels: [], datasets: [{ data: [], backgroundColor: ["#22c55e", "#3b82f6"] }] }
+    });
+    revenueTrendChart = new Chart(document.getElementById("revenueTrendChart"), {
+        type: "bar",
+        data: {
+            labels: [],
+            datasets: [{
+                    label: "จำนวนลูกค้า",
+                    data: [],
+                    backgroundColor: "#fff700"
+                }]
+        },
+        options: baseOptions("คน")
+    });
+    channelChart = new Chart(document.getElementById("channelChart"), {
+        type: "bar",
+        data: {
+            labels: [],
+            datasets: [{
+                    label: "รายได้",
+                    data: [],
+                    backgroundColor: ["#f700ff", "#00ff1e"]
+                }]
+        },
+        options: baseOptions("บาท")
+    });
+    bookingRatioChart = new Chart(document.getElementById("bookingRatioChart"), {
         type: "doughnut",
         data: {
             labels: [],
             datasets: [{
                     data: [],
-                    backgroundColor: ["#3b82f6", "#ec4899", "#10b981"]
+                    backgroundColor: ["#f700ff", "#00ff1e"]
                 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: "70%"
         }
     });
-    facultyChart = new Chart(facultyEl, {
+    branchChart = new Chart(document.getElementById("topChart"), {
         type: "bar",
         data: {
             labels: [],
             datasets: [{
-                    label: "จำนวนผู้ใช้",
+                    label: "จำนวนลูกค้า",
                     data: [],
-                    backgroundColor: "#ff7a00"
-                }]
-        }
-    });
-    topUserChart = new Chart(topUserEl, {
-        type: "bar",
-        data: {
-            labels: [],
-            datasets: [{
-                    label: "จำนวนครั้งที่จอง",
-                    data: [],
-                    backgroundColor: "#6366f1"
+                    backgroundColor: "#3b82f6"
                 }]
         },
-        options: { indexAxis: "y" }
-    });
-    var yearEl = document.getElementById("yearChart");
-    if (yearEl) {
-        yearChart = new Chart(yearEl, {
-            type: "bar",
-            data: {
-                labels: [],
-                datasets: [{
-                        label: "จำนวนผู้ใช้",
-                        data: [],
-                        backgroundColor: "#22c55e"
-                    }]
-            }
-        });
-    }
-    var branchEl = document.getElementById("branchChart");
-    if (branchEl) {
-        branchChart = new Chart(branchEl, {
-            type: "bar",
-            data: {
-                labels: [],
-                datasets: [{
-                        label: "จำนวนผู้ใช้",
-                        data: [],
-                        backgroundColor: "#3b82f6"
-                    }]
-            },
-            options: {
-                indexAxis: "y" // ทำเป็นแนวนอน อ่านง่ายกว่า
-            }
-        });
-    }
-}
-/* ==============================
-   DROPDOWN
-============================== */
-function loadDropdown(url, selectId, valueKey, labelKey) {
-    return __awaiter(this, void 0, void 0, function () {
-        var json, data, select_1, defaultOption, err_2;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 2, , 3]);
-                    return [4 /*yield*/, safeFetch(url)];
-                case 1:
-                    json = _a.sent();
-                    data = Array.isArray(json) ? json : json === null || json === void 0 ? void 0 : json.data;
-                    select_1 = document.getElementById(selectId);
-                    if (!select_1)
-                        return [2 /*return*/];
-                    select_1.innerHTML = "";
-                    defaultOption = document.createElement("option");
-                    defaultOption.value = "";
-                    defaultOption.textContent = "ทั้งหมด";
-                    select_1.appendChild(defaultOption);
-                    if (!Array.isArray(data))
-                        return [2 /*return*/];
-                    data.forEach(function (item) {
-                        var option = document.createElement("option");
-                        option.value = item[valueKey];
-                        option.textContent = item[labelKey];
-                        select_1.appendChild(option);
-                    });
-                    return [3 /*break*/, 3];
-                case 2:
-                    err_2 = _a.sent();
-                    console.error("Dropdown error:", err_2);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
-            }
-        });
-    });
-}
-function loadRegions() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, loadDropdown("/sports_rental_system/executive/api/get_regions.php", "regionSelect", "region_id", "region_name")];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-function loadProvinces() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, loadDropdown("/sports_rental_system/executive/api/get_provinces.php", "provinceSelect", "province_id", "name")];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-function loadBranches() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, loadDropdown("/sports_rental_system/executive/api/get_branches.php", "branchSelect", "branch_id", "name")];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-function loadFaculties() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, loadDropdown("/sports_rental_system/executive/api/get_faculty.php", "facultySelect", "id", "name")];
-                case 1:
-                    _a.sent();
-                    return [2 /*return*/];
-            }
-        });
+        options: baseOptions("คน")
     });
 }
