@@ -83,7 +83,7 @@ function resetFilter() {
      LOAD DASHBOARD
 ============================== */
 function loadAll() {
-    fetch("/sports_rental_system/executive/api/dashboard_summarys.php", {
+    fetch("/sports_rental_system/executive/api/dashboard_summary.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(getFilter())
@@ -120,12 +120,12 @@ function updateKPI(kpi) {
 ============================== */
 function updateBookingTrend(data) {
     bookingTrendChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    bookingTrendChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || []; // ✅
+    bookingTrendChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
     bookingTrendChart.update();
 }
 function updateRevenueTrend(data) {
     revenueTrendChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
-    revenueTrendChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || []; // ✅
+    revenueTrendChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.data) || [];
     revenueTrendChart.update();
 }
 function updateChannel(data) {
@@ -136,7 +136,7 @@ function updateChannel(data) {
 function updateOverview(data) {
     overviewChart.data.labels = (data === null || data === void 0 ? void 0 : data.labels) || [];
     overviewChart.data.datasets[0].data = (data === null || data === void 0 ? void 0 : data.revenue) || [];
-    overviewChart.data.datasets[1].data = (data === null || data === void 0 ? void 0 : data.expense) || []; // 🔥 ต้องมีจาก backend
+    overviewChart.data.datasets[1].data = (data === null || data === void 0 ? void 0 : data.expense) || [];
     overviewChart.data.datasets[2].data = (data === null || data === void 0 ? void 0 : data.profit) || [];
     overviewChart.update();
 }
@@ -270,10 +270,28 @@ function initCharts() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: "index",
+                intersect: false
+            },
             scales: {
                 y: {
                     ticks: {
-                        callback: function (v) { return v.toLocaleString() + " บาท"; }
+                        callback: function (v) {
+                            var num = Number(v !== null && v !== void 0 ? v : 0);
+                            return num.toLocaleString() + " บาท";
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            var _a;
+                            var value = Number((_a = context.raw) !== null && _a !== void 0 ? _a : 0);
+                            return "".concat(context.dataset.label, ": ").concat(value.toLocaleString(), " \u0E1A\u0E32\u0E17");
+                        }
                     }
                 }
             }

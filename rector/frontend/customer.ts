@@ -1,75 +1,55 @@
-let charts = {};
-let dashboardTimer = null;
+declare const Chart: any;
 
-document.addEventListener("DOMContentLoaded", async () => {
-	await checkSession();
-	await loadFilterOptions();
-	initFilterEvents();
+let charts: Record<string, any> = {};
+
+/* ============================== */
+document.addEventListener("DOMContentLoaded", function () {
+	checkSession();
+	loadFilterOptions();
+	bindFilters();
 	toggleCustomDate();
-	await loadDashboard();
+	loadAll();
 });
 
-/* ================= SESSION CHECK ================= */
-async function checkSession() {
-	try {
-		const res = await fetch("/sports_rental_system/rector/api/check_session.php");
-		const data = await res.json();
-		if (!data.success) {
+/* ================= SESSION ================= */
+function checkSession(): void {
+	fetch("/sports_rental_system/rector/api/check_session.php")
+		.then(res => res.json())
+		.then(data => {
+			if (!data.success) {
+				window.location.href = "login.html";
+			}
+		})
+		.catch(() => {
 			window.location.href = "login.html";
-		}
-	} catch (err) {
-		console.error("Session check failed");
-		window.location.href = "login.html";
-	}
+		});
 }
 
-/* ================= LOAD FILTER OPTIONS ================= */
-async function loadFilterOptions() {
-	try {
-		const res = await fetch("/sports_rental_system/rector/api/get_executive_overview.php");
-		const data = await res.json();
+/* ================= FILTER ================= */
 
-		const facSelect = document.getElementById("facultySelect");
-		if (facSelect && data.faculty) {
-			facSelect.innerHTML = '<option value="">ทุกคณะ</option>';
-			data.faculty.forEach(f => facSelect.add(new Option(f.name, f.id)));
-		}
-
-		const yearSelect = document.getElementById("yearSelect");
-		if (yearSelect && data.year) {
-			yearSelect.innerHTML = '<option value="">ทุกชั้นปี</option>';
-			data.year.forEach(y => yearSelect.add(new Option(`ปี ${y}`, y)));
-		}
-
-		const genSelect = document.getElementById("genderSelect");
-		if (genSelect && data.gender) {
-			genSelect.innerHTML = '<option value="">ทุกเพศ</option>';
-			data.gender.forEach(g => genSelect.add(new Option(g.name, g.id)));
-		}
-	} catch (err) {
-		console.error("Filter options error:", err);
-	}
-}
-
-/* ================= INIT FILTER EVENTS ================= */
-function initFilterEvents() {
-	const filterIds = [
+function bindFilters(): void {
+	const ids = [
 		"rangeSelect", "bookingTypeSelect", "userTypeSelect",
-		"facultySelect", "yearSelect", "genderSelect", "startDate", "endDate"
+		"facultySelect", "yearSelect", "genderSelect",
+		"startDate", "endDate"
 	];
 
-	const userTypeEl = document.getElementById("userTypeSelect");
+	const userTypeEl = document.getElementById("userTypeSelect") as HTMLSelectElement;
+
 	if (userTypeEl) {
 		userTypeEl.addEventListener("change", function () {
-			const facultyEl = document.getElementById("facultySelect");
-			const yearEl = document.getElementById("yearSelect");
 
-			const isNotStudent = this.value === "general" || this.value === "external";
+			const facultyEl = document.getElementById("facultySelect") as HTMLSelectElement;
+			const yearEl = document.getElementById("yearSelect") as HTMLSelectElement;
+
+			const value = userTypeEl.value;
+			const isNotStudent = value === "general" || value === "external";
 
 			if (facultyEl) {
 				facultyEl.disabled = isNotStudent;
 				if (isNotStudent) facultyEl.value = "";
 			}
+
 			if (yearEl) {
 				yearEl.disabled = isNotStudent;
 				if (isNotStudent) yearEl.value = "";
@@ -77,272 +57,220 @@ function initFilterEvents() {
 		});
 	}
 
-	filterIds.forEach(id => {
-		const el = document.getElementById(id);
-		if (el) {
-			el.addEventListener("change", () => {
-				if (id === "rangeSelect") toggleCustomDate();
-				debounceLoad();
-			});
-		}
-	});
-
-	document.getElementById("resetFilter")?.addEventListener("click", () => {
-		resetFilters();
-		loadDashboard();
-	});
-}
-
-function debounceLoad() {
-	clearTimeout(dashboardTimer);
-	dashboardTimer = setTimeout(() => loadDashboard(), 300);
-}
-
-function toggleCustomDate() {
-	const rangeEl = document.getElementById("rangeSelect");
-	const box = document.getElementById("customDateBox");
-	if (rangeEl && box) {
-		box.style.display = rangeEl.value === "custom" ? "flex" : "none";
-	}
-}
-
-function resetFilters() {
-	const ids = ["rangeSelect", "bookingTypeSelect", "userTypeSelect", "facultySelect", "yearSelect", "genderSelect", "startDate", "endDate"];
 	ids.forEach(id => {
-		const el = document.getElementById(id);
-		if (el) {
-			if (id === "rangeSelect") el.value = "all";
-			else el.value = "";
-		}
+		const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement;
+		if (!el) return;
+
+		el.addEventListener("change", () => {
+			if (id === "rangeSelect") toggleCustomDate();
+			loadAll();
+		});
 	});
-	toggleCustomDate();
+
+	document.getElementById("resetFilter")
+		?.addEventListener("click", resetFilters);
 }
+
+/* ================= FILTER LOGIC ================= */
 
 function getFilters() {
 	return {
-		range: document.getElementById("rangeSelect")?.value || "",
-		start_date: document.getElementById("startDate")?.value || "",
-		end_date: document.getElementById("endDate")?.value || "",
-		booking_type: document.getElementById("bookingTypeSelect")?.value || "",
-		user_type: document.getElementById("userTypeSelect")?.value || "",
-		faculty_id: document.getElementById("facultySelect")?.value || "",
-		year: document.getElementById("yearSelect")?.value || "",
-		gender_id: document.getElementById("genderSelect")?.value || ""
+		range: (document.getElementById("rangeSelect") as HTMLSelectElement)?.value || "",
+		start_date: (document.getElementById("startDate") as HTMLInputElement)?.value || "",
+		end_date: (document.getElementById("endDate") as HTMLInputElement)?.value || "",
+		booking_type: (document.getElementById("bookingTypeSelect") as HTMLSelectElement)?.value || "",
+		user_type: (document.getElementById("userTypeSelect") as HTMLSelectElement)?.value || "",
+		faculty_id: (document.getElementById("facultySelect") as HTMLSelectElement)?.value || "",
+		year: (document.getElementById("yearSelect") as HTMLSelectElement)?.value || "",
+		gender_id: (document.getElementById("genderSelect") as HTMLSelectElement)?.value || ""
 	};
 }
 
-/* ================= LOAD DASHBOARD ================= */
-async function loadDashboard() {
-	try {
-		const filters = getFilters();
-		const query = new URLSearchParams(filters).toString();
+function toggleCustomDate(): void {
+	const range = (document.getElementById("rangeSelect") as HTMLSelectElement)?.value;
+	const box = document.getElementById("customDateBox") as HTMLElement;
 
-		const res = await fetch("/sports_rental_system/rector/api/get_executive_overview.php?" + query);
+	if (!box) return;
+	box.style.display = range === "custom" ? "flex" : "none";
+}
 
-		const contentType = res.headers.get("content-type");
-		if (!contentType || !contentType.includes("application/json")) {
-			const text = await res.text();
-			console.error("Server returned non-JSON:", text);
-			return;
+function resetFilters(): void {
+	const ids = [
+		"rangeSelect", "bookingTypeSelect", "userTypeSelect",
+		"facultySelect", "yearSelect", "genderSelect",
+		"startDate", "endDate"
+	];
+
+	ids.forEach(id => {
+		const el = document.getElementById(id) as HTMLInputElement | HTMLSelectElement;
+		if (!el) return;
+
+		if (id === "rangeSelect") el.value = "all";
+		else el.value = "";
+	});
+
+	toggleCustomDate();
+	loadAll();
+}
+
+/* ================= LOAD FILTER OPTIONS ================= */
+
+function loadFilterOptions(): void {
+	fetch("/sports_rental_system/rector/api/get_executive_overview.php")
+		.then(res => res.json())
+		.then(data => {
+
+			const facSelect = document.getElementById("facultySelect") as HTMLSelectElement;
+			if (facSelect && data.faculty) {
+				facSelect.innerHTML = '<option value="">ทุกคณะ</option>';
+				data.faculty.forEach((f: any) => {
+					facSelect.add(new Option(f.name, f.id));
+				});
+			}
+
+			const yearSelect = document.getElementById("yearSelect") as HTMLSelectElement;
+			if (yearSelect && data.year) {
+				yearSelect.innerHTML = '<option value="">ทุกชั้นปี</option>';
+				data.year.forEach((y: any) => {
+					yearSelect.add(new Option(`ปี ${y}`, y));
+				});
+			}
+
+			const genSelect = document.getElementById("genderSelect") as HTMLSelectElement;
+			if (genSelect && data.gender) {
+				genSelect.innerHTML = '<option value="">ทุกเพศ</option>';
+				data.gender.forEach((g: any) => {
+					genSelect.add(new Option(g.name, g.id));
+				});
+			}
+		})
+		.catch(err => console.error(err));
+}
+
+/* ================= LOAD ================= */
+
+function loadAll(): void {
+
+	fetch("/sports_rental_system/rector/api/get_executive_overview.php?" +
+		new URLSearchParams(getFilters()).toString()
+	)
+		.then(res => res.json())
+		.then(data => {
+
+			if (!data.success) return;
+
+			updateKPI(data.kpi);
+
+			const chartsData = data.charts || {};
+
+			updateTrend(chartsData.trend);
+			updateFaculty(chartsData.top_faculty);
+			updateGender(chartsData.gender);
+			updateYear(chartsData.year);
+
+		})
+		.catch(err => console.error(err));
+}
+
+/* ================= KPI ================= */
+
+function updateKPI(kpi: any = {}): void {
+	updateKpiUI("kpiUsers", kpi.total_users, "");
+	updateKpiUI("kpiPenetration", kpi.student_pct, "%");
+	updateKpiUI("kpiGeneral", kpi.general_pct, "%");
+	updateKpiUI("kpiExternal", kpi.external_pct, "%");
+}
+
+/* ================= CHART ================= */
+
+function updateTrend(data: any): void {
+	renderChart("trendUsersChart", {
+		type: "line",
+		data: {
+			labels: (data?.labels ?? []).map((l: string) =>
+				new Date(l + "-01").toLocaleString('en-US', { month: 'short' })
+			),
+			datasets: [{
+				data: data?.data ?? [],
+				borderColor: "#339af0",
+				backgroundColor: "rgba(51,154,240,0.1)",
+				fill: true
+			}]
 		}
+	});
+}
 
-		const data = await res.json();
-		if (!data.success) return;
+function updateFaculty(data: any): void {
+	renderChart("topFacultyChart", {
+		type: "bar",
+		data: {
+			labels: data?.labels ?? [],
+			datasets: [{
+				data: data?.data ?? [],
+				backgroundColor: "#51cf66"
+			}]
+		}
+	});
+}
 
-		// อัปเดต KPI
-		const kpi = data.kpi ?? {};
-		updateKpiUI("kpiUsers", kpi.total_users, "");
-		updateKpiUI("kpiPenetration", kpi.student_pct, "%");
-		updateKpiUI("kpiGeneral", kpi.general_pct, "%");
-		updateKpiUI("kpiExternal", kpi.external_pct, "%");
+function updateGender(data: any): void {
 
-		const chartsData = data.charts;
+	const labels = data?.labels ?? [];
 
-		// 1. แนวโน้มการจอง
-		renderChart("trendUsersChart", {
-			type: "line",
-			data: {
-				labels: (chartsData.trend?.labels ?? []).map(label => {
-					const date = new Date(label + "-01");
-					return date.toLocaleString('en-US', { month: 'short' });
-				}),
-				datasets: [{
-					label: "จำนวนผู้เข้าใช้งาน (คน)",
-					data: chartsData.trend?.data ?? [],
-					borderColor: "#339af0",
-					backgroundColor: "rgba(51, 154, 240, 0.1)",
-					fill: true,
-					tension: 0,
-					cubicInterpolationMode: 'monotone'
-				}]
-			},
-			options: {
-				animation: false,
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					y: {
-						beginAtZero: true,
-						min: 0,
-						ticks: {
-							stepSize: 1,
-							precision: 0,
-							callback: function (value) {
-								return value.toLocaleString() + " คน";
-							}
-						}
-					}
-				}
-			}
-		});
+	const colors = labels.map((l: string) => {
+		if (l.trim() === "ชาย") return "#4dabf7";
+		if (l.trim() === "หญิง") return "#ff69b4";
+		return "#adb5bd";
+	});
 
-		// 2. อันดับคณะ
-		renderChart("topFacultyChart", {
-			type: "bar",
-			data: {
-				labels: chartsData.top_faculty?.labels ?? [],
-				datasets: [{
-					label: "จำนวนนิสิต (คน)",
-					data: chartsData.top_faculty?.data ?? [],
-					backgroundColor: "#51cf66",
-					barThickness: 25,
-					maxBarThickness: 30,
-					categoryPercentage: 0.8
-				}]
-			},
-			options: {
-				indexAxis: "y",
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { display: false }
-				},
-				scales: {
-					x: {
-						beginAtZero: true,
-						suggestedMax: 1,
-						ticks: {
-							stepSize: 1,
-							precision: 0,
-							callback: function (value) {
-								return value + " คน";
-							}
-						}
-					},
-					y: {
-						ticks: {
-							padding: 10,
-							font: { size: 12 }
-						}
-					}
-				}
-			}
-		});
+	renderChart("genderChart", {
+		type: "doughnut",
+		data: {
+			labels,
+			datasets: [{
+				data: data?.data ?? [],
+				backgroundColor: colors
+			}]
+		}
+	});
+}
 
-		// --- 3. สัดส่วนเพศ ---
-		const genderLabels = chartsData.gender?.labels ?? [];
-		const genderColors = genderLabels.map(label => {
-			const cleanLabel = label.trim();
-
-			if (cleanLabel === 'ชาย') return "#4dabf7";   
-			if (cleanLabel === 'หญิง') return "#ff69b4";  
-
-			return "#adb5bd"; 
-		});
-
-		renderChart("genderChart", {
-			type: "doughnut",
-			data: {
-				labels: genderLabels,
-				datasets: [{
-					data: chartsData.gender?.data ?? [],
-					backgroundColor: genderColors
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				cutout: '70%',
-				plugins: {
-					legend: { position: 'bottom' },
-					tooltip: {
-						callbacks: {
-							label: function (context) {
-								let label = context.label || '';
-								let value = context.raw || 0;
-								return ` ${label}: ${value} คน`;
-							}
-						}
-					}
-				}
-			}
-		});
-
-		// 4. สถิติตามชั้นปี
-		renderChart("yearChart", {
-			type: "bar",
-			data: {
-				labels: chartsData.year?.labels ?? [],
-				datasets: [{
-					label: "จำนวนนิสิต (คน)",
-					data: chartsData.year?.data ?? [],
-					backgroundColor: "#ff922b"
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					y: {
-						beginAtZero: true,
-						ticks: {
-							stepSize: 1,
-							precision: 0,
-							callback: function (value) {
-								return value.toLocaleString() + " คน";
-							}
-						}
-					}
-				},
-				plugins: {
-					legend: {
-						display: false
-					},
-					tooltip: {
-						callbacks: {
-							label: function (context) {
-								return `จำนวน: ${context.parsed.y.toLocaleString()} คน`;
-							}
-						}
-					}
-				}
-			}
-		});
-
-	} catch (err) {
-		console.error("Dashboard error:", err);
-	}
+function updateYear(data: any): void {
+	renderChart("yearChart", {
+		type: "bar",
+		data: {
+			labels: data?.labels ?? [],
+			datasets: [{
+				data: data?.data ?? [],
+				backgroundColor: "#ff922b"
+			}]
+		}
+	});
 }
 
 /* ================= HELPERS ================= */
-function updateKpiUI(id, value, unit) {
-	const el = document.getElementById(id);
-	if (el) {
-		const num = Number(value ?? 0);
-		const isPercent = ["kpiPenetration", "kpiGeneral", "kpiExternal"].includes(id);
 
-		el.innerText = isPercent
-			? num.toFixed(1) + unit
-			: num.toLocaleString() + unit;
+function updateKpiUI(id: string, value: any, unit: string): void {
+	const el = document.getElementById(id);
+	if (!el) return;
+
+	const num = Number(value ?? 0);
+
+	if (id === "kpiPenetration" || id === "kpiGeneral" || id === "kpiExternal") {
+		el.innerText = num.toFixed(1) + unit;
+	} else {
+		el.innerText = num.toLocaleString() + unit;
 	}
 }
 
-function renderChart(id, config) {
-	const canvas = document.getElementById(id);
+function renderChart(id: string, config: any): void {
+	const canvas = document.getElementById(id) as HTMLCanvasElement;
 	if (!canvas) return;
 
 	if (charts[id]) charts[id].destroy();
-	Chart.defaults.font.family = "'Noto Sans Thai', sans-serif";
+
 	const ctx = canvas.getContext("2d");
-	if (ctx) charts[id] = new Chart(ctx, config);
+	if (!ctx) return;
+
+	charts[id] = new Chart(ctx, config);
 }

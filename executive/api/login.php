@@ -61,8 +61,10 @@ if ((int)$row["role_id"] !== 1) {
 }
 
 /* Login สำเร็จ */
-$_SESSION["staff_id"] = $row["staff_id"];
 $_SESSION["role_id"]  = 1;
+
+$_SESSION["staff_id"] = $row["staff_id"];
+
 $_SESSION["is_admin"] = true;
 
 echo json_encode([

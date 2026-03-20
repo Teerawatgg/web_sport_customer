@@ -93,7 +93,7 @@ function resetFilter(): void {
 
 function loadAll(): void {
 
-	fetch("/sports_rental_system/executive/api/dashboard_summarys.php", {
+	fetch("/sports_rental_system/executive/api/dashboard_summary.php", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(getFilter())
@@ -103,11 +103,11 @@ function loadAll(): void {
 
 			updateKPI(result.kpi);
 
-updateOverview(result.trend_finance);
+			updateOverview(result.trend_finance);
 
-updateBookingTrend(result.trend_booking);
+			updateBookingTrend(result.trend_booking);
 
-updateRevenueTrend(result.trend_revenue);
+			updateRevenueTrend(result.trend_revenue);
 
 			updateChannel(result.channel);
 
@@ -145,15 +145,15 @@ function updateKPI(kpi: any): void {
 ============================== */
 
 function updateBookingTrend(data: any): void {
-  bookingTrendChart.data.labels = data?.labels || [];
-  bookingTrendChart.data.datasets[0].data = data?.data || []; 
-  bookingTrendChart.update();
+	bookingTrendChart.data.labels = data?.labels || [];
+	bookingTrendChart.data.datasets[0].data = data?.data || [];
+	bookingTrendChart.update();
 }
 
 function updateRevenueTrend(data: any): void {
-  revenueTrendChart.data.labels = data?.labels || [];
-  revenueTrendChart.data.datasets[0].data = data?.data || []; 
-  revenueTrendChart.update();
+	revenueTrendChart.data.labels = data?.labels || [];
+	revenueTrendChart.data.datasets[0].data = data?.data || [];
+	revenueTrendChart.update();
 }
 
 function updateChannel(data: any): void {
@@ -166,7 +166,7 @@ function updateOverview(data: any): void {
 	overviewChart.data.labels = data?.labels || [];
 
 	overviewChart.data.datasets[0].data = data?.revenue || [];
-	overviewChart.data.datasets[1].data = data?.expense || []; 
+	overviewChart.data.datasets[1].data = data?.expense || [];
 	overviewChart.data.datasets[2].data = data?.profit || [];
 
 	overviewChart.update();
@@ -326,10 +326,27 @@ function initCharts(): void {
 		options: {
 			responsive: true,
 			maintainAspectRatio: false,
+			interaction: {
+				mode: "index",
+				intersect: false
+			},
 			scales: {
 				y: {
 					ticks: {
-						callback: (v: any) => v.toLocaleString() + " บาท"
+						callback: (v: any) => {
+							const num = Number(v ?? 0);
+							return num.toLocaleString() + " บาท";
+						}
+					}
+				}
+			},
+			plugins: {
+				tooltip: {
+					callbacks: {
+						label: function (context: any) {
+							const value = Number(context.raw ?? 0);
+							return `${context.dataset.label}: ${value.toLocaleString()} บาท`;
+						}
 					}
 				}
 			}

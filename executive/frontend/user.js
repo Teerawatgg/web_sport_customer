@@ -61,7 +61,6 @@ function bindFilters() {
             if (id === "provinceSelect") {
                 loadBranches();
             }
-            // 🔥 ยิงทุกครั้ง
             loadAll();
         });
     });
@@ -165,7 +164,6 @@ function updateKPI(kpi) {
 function updateRevenueTrend(data) {
     if (!revenueTrendChart)
         return;
-    // 🎯 กำหนดกลุ่มมาตรฐาน
     var standardLabels = [
         "(1–4 ครั้ง)",
         "(5–10 ครั้ง)",
@@ -194,11 +192,17 @@ function updateChannel(data) {
     };
     var labels = ((data === null || data === void 0 ? void 0 : data.labels) || []).map(function (l) { return labelMap[l] || l; });
     var values = ((_a = data === null || data === void 0 ? void 0 : data.data) === null || _a === void 0 ? void 0 : _a.length) ? data.data : [0];
+    var colorMap = {
+        "บุคคลทั่วไป": "#6366f1", // ม่วง
+        "นิสิต/นักศึกษา": "#f59e0b" // ส้ม
+    };
+    var colors = labels.map(function (l) { return colorMap[l] || "#94a3b8"; });
     var maxY = getNiceMax(values);
     channelChart.options.scales.y.min = 0;
     channelChart.options.scales.y.max = maxY;
     channelChart.data.labels = labels;
     channelChart.data.datasets[0].data = values;
+    channelChart.data.datasets[0].backgroundColor = colors;
     channelChart.update();
 }
 function updateBookingTrend(data) {

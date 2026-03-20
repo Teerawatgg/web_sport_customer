@@ -61,7 +61,6 @@ function bindFilters(): void {
 				loadBranches();
 			}
 
-			// 🔥 ยิงทุกครั้ง
 			loadAll();
 		});
 	});
@@ -194,7 +193,6 @@ function updateKPI(kpi: any): void {
 function updateRevenueTrend(data: any): void {
 	if (!revenueTrendChart) return;
 
-	// 🎯 กำหนดกลุ่มมาตรฐาน
 	const standardLabels = [
 		"(1–4 ครั้ง)",
 		"(5–10 ครั้ง)",
@@ -224,13 +222,20 @@ function updateRevenueTrend(data: any): void {
 function updateChannel(data: any): void {
 	if (!channelChart) return;
 
-		const labelMap: any = {
+	const labelMap: any = {
 		general: "บุคคลทั่วไป",
 		student: "นิสิต/นักศึกษา"
 	};
 
 	const labels = (data?.labels || []).map((l: string) => labelMap[l] || l);
 	const values = data?.data?.length ? data.data : [0];
+
+	const colorMap: any = {
+		"บุคคลทั่วไป": "#6366f1",   // ม่วง
+		"นิสิต/นักศึกษา": "#f59e0b" // ส้ม
+	};
+
+	const colors = labels.map((l: string) => colorMap[l] || "#94a3b8");
 
 	const maxY = getNiceMax(values);
 
@@ -240,9 +245,9 @@ function updateChannel(data: any): void {
 	channelChart.data.labels = labels;
 	channelChart.data.datasets[0].data = values;
 
+	channelChart.data.datasets[0].backgroundColor = colors;
+
 	channelChart.update();
-
-
 }
 
 function updateBookingTrend(data: any): void {
