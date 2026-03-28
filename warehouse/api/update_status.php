@@ -38,7 +38,7 @@ if (!$logId || !$statusId) {
 // =============================
 $checkSql = "
     SELECT m.log_id
-    FROM Maintenance_logs m
+    FROM maintenance_logs m
     JOIN equipment_instances ei
         ON m.instance_code = ei.instance_code
     WHERE m.log_id = ?
